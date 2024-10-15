@@ -4,7 +4,7 @@
 <br>
 
 <p align="center">
-  <img src="https://photos.google.com/share/AF1QipORnr4B6m5ihxb3Cf_w_iQJp4zf7DlfRuBsCbsS4Az-8tj8N-wUiroMjFTVWx8lEQ/photo/AF1QipMiJPVqJd2Cpxw3wPoBnl9ELWieHx3gPJwvCYXx?key=VTNDTE5zekd6THVMZjVLamJIYmw1Qlk5WDhFTHhR" alt="banner_QuizEstudantil"/>
+  <img src="https://github.com/fabiofjnr/QuizEstudantil/assets/quizeducacional.png" alt="banner_QuizEstudantil"/>
 </p>
 
 <p align="center">
