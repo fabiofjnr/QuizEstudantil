@@ -51,7 +51,6 @@ export default function Perfil() {
       return usernameRegex.test(username);
     };
   
-    // Só verifica o nome de usuário se ele for fornecido
     if (username && !isValidUsername(username)) {
       setAlertVisible(true);
       setAlertData({
@@ -62,7 +61,6 @@ export default function Perfil() {
     }
   
     try {
-      // Verifica se o nome de usuário foi preenchido e se já está em uso
       if (username) {
         const usernamesQuery = query(
           collection(db, "users"),
@@ -96,7 +94,7 @@ export default function Perfil() {
   
       await updateDoc(userRef, {
         name: nome || null,
-        username: username || currentData.username || null, // Se não fornecer, mantém o antigo
+        username: username || currentData.username || null, 
         profileImageUrl: imageUrl || null,
       });
   

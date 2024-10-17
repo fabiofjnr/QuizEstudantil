@@ -49,7 +49,6 @@ const Ranking = () => {
 
       const currentUser = allUsers.find(user => user.id === auth.currentUser?.uid);
 
-      // Verificar se o profileImageUrl está no Firestore ou usar o photoURL do Auth
       setCurrentUserData(currentUser || {
         pontos: 0,
         name: auth.currentUser?.displayName || 'Usuário',
@@ -65,8 +64,8 @@ const Ranking = () => {
       return () => unsubscribe();
     };
 
-    if (isFocused) {  // Verifica se a tela está focada
-      fetchRankingData();  // Busca os dados do ranking novamente
+    if (isFocused) {  
+      fetchRankingData();  
     }
   }, [isFocused]);
 
@@ -166,7 +165,7 @@ const Ranking = () => {
             data={users}
             renderItem={renderItem}
             keyExtractor={item => item.id}
-            ListFooterComponent={renderUserStatus} // Exibe as informações de status do usuário após o top 10
+            ListFooterComponent={renderUserStatus} 
           />
         </>
       )}
