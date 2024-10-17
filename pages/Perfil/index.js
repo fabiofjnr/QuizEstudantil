@@ -45,13 +45,14 @@ export default function Perfil() {
       });
       return;
     }
-
+  
     const isValidUsername = (username) => {
-      const usernameRegex = /^[a-zA-Z0-9._]{3,24}$/; 
+      const usernameRegex = /^[a-zA-Z0-9._]{3,24}$/;
       return usernameRegex.test(username);
     };
-
-    if (!isValidUsername(username)) {
+  
+    // Só verifica o nome de usuário se ele for fornecido
+    if (username && !isValidUsername(username)) {
       setAlertVisible(true);
       setAlertData({
         title: "Erro",
@@ -59,23 +60,28 @@ export default function Perfil() {
       });
       return;
     }
-
+  
     try {
-      const usernamesQuery = query(
-        collection(db, "users"),
-        where("username", "==", username)
-      );
-      const usernamesSnapshot = await getDocs(usernamesQuery);
-
-      if (!usernamesSnapshot.empty && username !== (await getDoc(doc(db, "users", user.uid))).data().username) {
-        setAlertVisible(true);
-        setAlertData({
-          title: "Erro!",
-          message: "Esse nome de usuário já está em uso.",
-        });
-        return;
+      // Verifica se o nome de usuário foi preenchido e se já está em uso
+      if (username) {
+        const usernamesQuery = query(
+          collection(db, "users"),
+          where("username", "==", username)
+        );
+        const usernamesSnapshot = await getDocs(usernamesQuery);
+  
+        const isCurrentUserUsername = (await getDoc(doc(db, "users", user.uid))).data().username === username;
+  
+        if (!isCurrentUserUsername && !usernamesSnapshot.empty) {
+          setAlertVisible(true);
+          setAlertData({
+            title: "Erro!",
+            message: "Esse nome de usuário já está em uso.",
+          });
+          return;
+        }
       }
-
+  
       let imageUrl = profileImageUrl;
       if (newImage) {
         const response = await fetch(newImage);
@@ -84,20 +90,16 @@ export default function Perfil() {
         await uploadBytes(storageRef, blob);
         imageUrl = await getDownloadURL(storageRef);
       }
-
+  
       const userRef = doc(db, "users", user.uid);
       const currentData = (await getDoc(userRef)).data();
-      const previousUsername = currentData.username;
-
+  
       await updateDoc(userRef, {
         name: nome || null,
-        username: username || null,
+        username: username || currentData.username || null, // Se não fornecer, mantém o antigo
         profileImageUrl: imageUrl || null,
       });
-
-      if (previousUsername !== username) {
-      }
-
+  
       setProfileImageUrl(imageUrl);
       setNewImage(null);
       setAlertVisible(true);
@@ -114,6 +116,8 @@ export default function Perfil() {
       });
     }
   };
+  
+  
 
   const handleChangeProfilePicture = async () => {
     const permissionResult =

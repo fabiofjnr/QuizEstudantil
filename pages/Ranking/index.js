@@ -1,52 +1,84 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, ActivityIndicator, Modal, TouchableOpacity, TextInput } from 'react-native';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
 import { db, auth } from "../../firebase";
+import { useIsFocused } from '@react-navigation/native';
 
 const trophyIcons = [
-  '🥇', 
-  '🥈', 
+  '🥇',
+  '🥈',
   '🥉',
 ];
 
 const Ranking = () => {
+  const isFocused = useIsFocused();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState(null); 
-  const [modalVisible, setModalVisible] = useState(false); 
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [newScore, setNewScore] = useState('');
+  const [userRank, setUserRank] = useState(null);
+  const [currentUserData, setCurrentUserData] = useState(null);
 
-  const authorizedEmails = ["fj878207@gmail.com", "quizestudantil@gmail.com"]; 
+  const authorizedEmails = ["fj878207@gmail.com", "quizestudantil@gmail.com"];
 
   useEffect(() => {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, orderBy('pontos', 'desc'), limit(10));
+    const fetchRankingData = async () => {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, orderBy('pontos', 'desc'), limit(10));
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const rankingData = querySnapshot.docs.map(doc => ({
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const rankingData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setUsers(rankingData);
+        setLoading(false);
+      }, (error) => {
+        console.error("Erro ao buscar dados do ranking:", error);
+        setLoading(false);
+      });
+
+      const allUsersSnapshot = await getDocs(query(usersRef, orderBy('pontos', 'desc')));
+      const allUsers = allUsersSnapshot.docs.map((doc, index) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        rank: index + 1
       }));
 
-      setUsers(rankingData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar dados do ranking:", error);
-      setLoading(false);
-    });
+      const currentUser = allUsers.find(user => user.id === auth.currentUser?.uid);
 
-    return () => unsubscribe();
-  }, []);
+      // Verificar se o profileImageUrl está no Firestore ou usar o photoURL do Auth
+      setCurrentUserData(currentUser || {
+        pontos: 0,
+        name: auth.currentUser?.displayName || 'Usuário',
+        profileImageUrl: currentUser?.profileImageUrl || auth.currentUser?.photoURL || null
+      });
+
+      if (currentUser) {
+        setUserRank(currentUser.rank);
+      } else {
+        setUserRank(null);
+      }
+
+      return () => unsubscribe();
+    };
+
+    if (isFocused) {  // Verifica se a tela está focada
+      fetchRankingData();  // Busca os dados do ranking novamente
+    }
+  }, [isFocused]);
 
   const openUserModal = (user) => {
-    setSelectedUser(user); 
-    setModalVisible(true); 
-    setNewScore(''); 
+    setSelectedUser(user);
+    setModalVisible(true);
+    setNewScore('');
   };
 
   const closeModal = () => {
     setModalVisible(false);
-    setSelectedUser(null); 
+    setSelectedUser(null);
     setNewScore('');
   };
 
@@ -62,7 +94,6 @@ const Ranking = () => {
     }
   };
 
-
   const renderItem = ({ item, index }) => (
     <TouchableOpacity style={styles.rankingItem} onPress={() => openUserModal(item)}>
       <Text style={styles.rank}>{index + 1}º</Text>
@@ -77,21 +108,67 @@ const Ranking = () => {
     </TouchableOpacity>
   );
 
+  const renderUserStatus = () => {
+    if (currentUserData && currentUserData.pontos === 0) {
+      return (
+        <View style={styles.rankingItem}>
+          <Text style={styles.rank}>99º</Text>
+          <Image
+            source={currentUserData.profileImageUrl
+              ? { uri: currentUserData.profileImageUrl }
+              : auth.currentUser?.photoURL
+                ? { uri: auth.currentUser.photoURL }
+                : require('../../assets/avatarpadrao.png')}
+            style={styles.avatar}
+          />
+          <Text style={styles.name}>
+            Você ainda não está no ranking.
+            Complete algum quiz e apareça!
+          </Text>
+        </View>
+      );
+    }
+
+    if (currentUserData && userRank > 10) {
+      return (
+        <TouchableOpacity style={styles.rankingItem}>
+          <Text style={styles.rank}>{userRank}º</Text>
+          <Image
+            source={currentUserData.profileImageUrl
+              ? { uri: currentUserData.profileImageUrl }
+              : auth.currentUser?.photoURL
+                ? { uri: auth.currentUser.photoURL }
+                : require('../../assets/avatarpadrao.png')}
+            style={styles.avatar}
+          />
+          <Text style={styles.name}>{currentUserData.name}</Text>
+          <Text style={styles.score}>{currentUserData.pontos}pts</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
+
   const isAuthorizedUser = authorizedEmails.includes(auth.currentUser?.email);
 
   return (
     <View style={styles.container}>
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFFFFF" /> 
+          <ActivityIndicator size="large" color="#FFFFFF" />
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
       ) : (
-        <FlatList
-          data={users}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-        />
+        <>
+          <FlatList
+            data={users}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            ListFooterComponent={renderUserStatus} // Exibe as informações de status do usuário após o top 10
+          />
+        </>
       )}
 
       <Modal
@@ -111,7 +188,7 @@ const Ranking = () => {
                 <Text style={styles.modalName}>{selectedUser.name}</Text>
                 <Text style={styles.modalUsername}>@{selectedUser.username ? selectedUser.username : "sem nome de usuário"}</Text>
                 <Text style={styles.modalScore}>Pontuação atual: {selectedUser.pontos} pontos</Text>
-                
+
                 {isAuthorizedUser && (
                   <>
                     <TextInput
@@ -121,7 +198,7 @@ const Ranking = () => {
                       value={newScore}
                       onChangeText={setNewScore}
                     />
-                    
+
                     <TouchableOpacity onPress={updateUserScore} style={styles.updateButton}>
                       <Text style={styles.updateButtonText}>Alterar Pontuação</Text>
                     </TouchableOpacity>
@@ -146,7 +223,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#01579B',
     padding: 20,
   },
-  loadingContainer: { 
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -189,9 +266,24 @@ const styles = StyleSheet.create({
     color: '#0288D1',
   },
   score: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#0277BD',
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  outOfRanking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    width: '70%',
+  },
+  outOfRankingText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginLeft: 10,
+    textAlign: 'center',
+    width: '70%',
   },
   modalContainer: {
     flex: 1,
